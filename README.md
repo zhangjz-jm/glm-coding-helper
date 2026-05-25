@@ -15,7 +15,7 @@
 
 ## 演示
 
-[点击查看演示视频](docs/assets/demo.mp4)
+https://github.com/user-attachments/assets/e1a56d07-5c4d-4aa1-a567-909dd25bd037
 
 ## 快速开始
 
