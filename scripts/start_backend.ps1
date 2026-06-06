@@ -40,7 +40,7 @@ function Test-BackendMainPython {
     $ErrFile = [System.IO.Path]::GetTempFileName()
     try {
         $Proc = Start-Process -FilePath $PythonPath `
-            -ArgumentList @("-c", "import ultralytics") `
+            -ArgumentList @("-c", "import ultralytics, PIL, cv2, numpy") `
             -NoNewWindow `
             -Wait `
             -PassThru `

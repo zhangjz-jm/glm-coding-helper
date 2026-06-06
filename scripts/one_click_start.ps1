@@ -54,15 +54,22 @@ $GpuPython = Join-Path $Root ".venv_paddle_gpu\Scripts\python.exe"
 $ImportCode = "import ultralytics, paddleocr, paddlex, cv2, PIL, numpy"
 
 $Ready = $false
+$SelectedPython = ""
 if ($Selected -eq "gpu") {
+    $SelectedPython = $GpuPython
     $Ready = Test-PythonImports $GpuPython $ImportCode
 } else {
+    $SelectedPython = $CpuPython
     $Ready = Test-PythonImports $CpuPython $ImportCode
 }
 
 if (-not $Ready) {
     Write-Host "Backend environment is missing or incomplete. Installing $Selected environment..."
     $argsList = @("-Target", $Selected)
+    if ($SelectedPython -and (Test-Path $SelectedPython)) {
+        Write-Host "Existing backend environment failed import checks. Recreating it..."
+        $argsList += "-Recreate"
+    }
     foreach ($arg in $PipArg) {
         $argsList += "-PipArg"
         $argsList += $arg
