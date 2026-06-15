@@ -1,4 +1,4 @@
-# GLM Coding Helper - Pipeline Backend Launcher
+﻿# GLM Coding Helper - Pipeline Backend Launcher
 # Usage: powershell -File start-backend-pipeline.ps1
 #   or double-click start-backend-pipeline.cmd
 
