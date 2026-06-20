@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         智谱 GLM Coding Plan 抢购助手 + 本地 OCR 自动验证码
 // @namespace    http://tampermonkey.net/
-// @version      22.7
+// @version      22.8
 // @description  GLM Coding Rush / 智谱 GLM Coding Plan 抢购助手，一键抢购油猴脚本 / Tampermonkey userscript，配合本地 CPU/GPU OCR 自动识别中文点选验证码并点击，支持多窗口并发、限流重试和支付页安全保护
 // @author       mumumi
 // @include      https://*bigmodel.cn/glm-coding*
@@ -271,10 +271,11 @@
     document.documentElement.dataset.glmHelper = '1';
     // ── 最早读配置（document-start 时还没有主流程）──────────────────────────
     const EARLY_STORAGE_KEY = 'glm_coding_config_v5';
-    const SAFE_DEFAULTS_VERSION = 3;
+    const SAFE_DEFAULTS_VERSION = 4;
     const _ec = (() => { try { return JSON.parse(GM_getValue(EARLY_STORAGE_KEY, '{}')); } catch { return {}; } })();
     if (_ec.SAFE_DEFAULTS_VERSION !== SAFE_DEFAULTS_VERSION) {
         _ec.AUTO_CLOSE_INVALID = false;
+        _ec.AUTO_CLICK_SUB = false;
         const oldRushTarget = (_ec.RUSH_TARGET_HOUR == null && _ec.RUSH_TARGET_MIN == null && _ec.RUSH_TARGET_SEC == null) ||
             (Number(_ec.RUSH_TARGET_HOUR) === 9 && Number(_ec.RUSH_TARGET_MIN) === 59 && Number(_ec.RUSH_TARGET_SEC) === 58);
         if (oldRushTarget) {
@@ -521,7 +522,7 @@
         CHECK_INTERVAL    : 80,
         SMART_REFRESH     : true,
         AUTO_CLOSE_INVALID: false,
-        AUTO_CLICK_SUB    : true,
+        AUTO_CLICK_SUB    : false,
         AUTO_CAPTCHA_CLICK : true,
         AUTO_CAPTCHA_CONFIRM: false,
         CAPTCHA_CLICK_DELAY_MODE : 'range',
@@ -560,12 +561,8 @@
     function getRushRemainingMs(now = Date.now()) {
         return getRushTargetTimestamp(now) - now;
     }
-    function isRushAutoClickWindow(now = Date.now()) {
-        if (!CFG.RUSH_ENABLED) return true;
-        const remaining = getRushRemainingMs(now);
-        if (remaining <= 0) return true;
-        const holdWindow = Math.max(0, parseInt(CFG.RUSH_HOLD_WINDOW_MS, 10) || 10000);
-        return remaining <= holdWindow;
+    function isRushTargetReached(now = Date.now()) {
+        return CFG.RUSH_ENABLED && getRushRemainingMs(now) <= 0;
     }
     function medianRush(values) {
         const sorted = values.filter(Number.isFinite).sort((a, b) => a - b);
@@ -1038,8 +1035,8 @@
                 </label>
                 <label style="display:flex;align-items:center;cursor:pointer">
                     <input type="checkbox" id="glm-acs" ${CFG.AUTO_CLICK_SUB ? 'checked' : ''} style="margin-right:8px">
-                    <span style="font-size:14px;color:#555">自动点击订阅</span>
-                    <span title="开启后脚本发现可购买的套餐会自动点击订阅按钮。&#10;关闭后只报警提醒，需手动点击（适合想自己掌控点击时机的场景）。" style="margin-left:6px;cursor:help;color:#999;font-size:14px;border:1px solid #ccc;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;line-height:1">?</span>
+                    <span style="font-size:14px;color:#555">自动点击订阅（默认关闭）</span>
+                    <span title="默认关闭，避免脚本加载后自动触发购买链路。&#10;开启后脚本发现可购买的套餐会自动点击订阅按钮；也可用快捷键临时开启。&#10;Rush mode 到目标时间后可自动点击。" style="margin-left:6px;cursor:help;color:#999;font-size:14px;border:1px solid #ccc;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;line-height:1">?</span>
                 </label>
                 <label style="display:flex;align-items:center;cursor:pointer">
                     <input type="checkbox" id="glm-acc" ${CFG.AUTO_CAPTCHA_CLICK ? 'checked' : ''} style="margin-right:8px">
@@ -1069,7 +1066,7 @@
                 <label style="display:flex;align-items:center;cursor:pointer">
                     <input type="checkbox" id="glm-re" ${CFG.RUSH_ENABLED ? 'checked' : ''} style="margin-right:8px">
                     <span style="font-size:14px;color:#555">冲刺模式（定时确认）</span>
-                    <span title="开启后，脚本只会在目标时间前最后 10 秒内自动点击订阅，并根据实测 RTT 保守释放验证码确定：不早于预测安全点，不晚于目标时间。目标窗口外不自动发起真实抢购请求。" style="margin-left:6px;cursor:help;color:#999;font-size:14px;border:1px solid #ccc;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;line-height:1">?</span>
+                    <span title="开启后，脚本目标时间前不会自动点击订阅；目标时间已到才允许进入购买链路。验证码确定仍按实测 RTT 保守释放：不早于预测安全点，不晚于目标时间。" style="margin-left:6px;cursor:help;color:#999;font-size:14px;border:1px solid #ccc;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;line-height:1">?</span>
                 </label>
                 <div style="display:flex;align-items:center;gap:6px;padding-left:26px">
                     <span style="font-size:13px;color:#888">目标时间</span>
@@ -1240,14 +1237,15 @@
                 setBar(`⏳ 等待按钮就绪... ${TABS_MAP[tab]} · ${PKGS_MAP[pkg]}`, '#d46b08');
                 return;
             }
-            if (!CFG.AUTO_CLICK_SUB) {
+            const rushReached = isRushTargetReached();
+            if (!CFG.AUTO_CLICK_SUB && !rushReached) {
                 showPayAlarm();
-                setBar(`🎯 <b>发现可购！${TABS_MAP[tab]} · ${PKGS_MAP[pkg]}</b>，请手动点击订阅`, '#389e0d');
-                return;
-            }
-            if (!isRushAutoClickWindow()) {
-                const remaining = Math.max(0, getRushRemainingMs());
-                setBar(`⏸️ 冲刺模式等待中，距离目标时间 <b>${fmt(remaining)}</b>，暂不自动点击订阅`, '#722ed1');
+                if (CFG.RUSH_ENABLED) {
+                    const remaining = Math.max(0, getRushRemainingMs());
+                    setBar(`🎯 <b>发现可购！${TABS_MAP[tab]} · ${PKGS_MAP[pkg]}</b>，冲刺模式等待目标时间 <b>${fmt(remaining)}</b>；也可按 ${autoClickSubHotkey()} 手动开启自动点击`, '#722ed1');
+                } else {
+                    setBar(`🎯 <b>发现可购！${TABS_MAP[tab]} · ${PKGS_MAP[pkg]}</b>，默认不自动点击；请手动点击或按 ${autoClickSubHotkey()} 开启`, '#389e0d');
+                }
                 return;
             }
             PS.result = null; PS.inProgress = true;
