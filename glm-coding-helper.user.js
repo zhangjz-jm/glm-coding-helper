@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         智谱 GLM Coding Plan 抢购助手 + 本地 OCR 自动验证码
 // @namespace    http://tampermonkey.net/
-// @version      22.2
+// @version      22.3
 // @description  GLM Coding Rush / 智谱 GLM Coding Plan 抢购助手，一键抢购油猴脚本 / Tampermonkey userscript，配合本地 CPU/GPU OCR 自动识别中文点选验证码并点击，支持多窗口并发、限流重试和支付页安全保护
 // @author       mumumi
 // @include      https://*bigmodel.cn/glm-coding*
@@ -523,6 +523,26 @@
     function loadCfg() { try { const s = GM_getValue(STORAGE_KEY, null); return s ? { ...DEF, ...JSON.parse(s) } : { ...DEF }; } catch { return { ...DEF }; } }
     function saveCfg(c) { GM_setValue(STORAGE_KEY, JSON.stringify(c)); }
     const CFG = loadCfg();
+    function getRushTargetTimestamp(now = Date.now()) {
+        const target = new Date(now);
+        target.setHours(
+            parseInt(CFG.RUSH_TARGET_HOUR, 10) || 9,
+            parseInt(CFG.RUSH_TARGET_MIN, 10) || 59,
+            parseInt(CFG.RUSH_TARGET_SEC, 10) || 58,
+            0
+        );
+        return target.getTime();
+    }
+    function getRushRemainingMs(now = Date.now()) {
+        return getRushTargetTimestamp(now) - now;
+    }
+    function isRushAutoClickWindow(now = Date.now()) {
+        if (!CFG.RUSH_ENABLED) return true;
+        const remaining = getRushRemainingMs(now);
+        if (remaining <= 0) return true;
+        const holdWindow = Math.max(0, parseInt(CFG.RUSH_HOLD_WINDOW_MS, 10) || 10000);
+        return remaining <= holdWindow;
+    }
     GM_registerMenuCommand('⚙️ 打开配置面板', openConfigPanel);
     GM_registerMenuCommand('🗑️ 清除今日套餐状态缓存', () => { localStorage.removeItem(_dsKey); alert('今日状态已清除，即将刷新。'); location.reload(); });
     GM_registerMenuCommand('🚀 一键多开窗口', openMultipleWindows);
@@ -896,6 +916,7 @@
                 <label style="display:flex;align-items:center;cursor:pointer">
                     <input type="checkbox" id="glm-re" ${CFG.RUSH_ENABLED ? 'checked' : ''} style="margin-right:8px">
                     <span style="font-size:14px;color:#555">冲刺模式（定时确认）</span>
+                    <span title="开启后，脚本只会在目标时间前最后 10 秒内自动点击订阅，并把验证码确定卡到目标时间附近。目标窗口外不自动发起真实抢购请求。" style="margin-left:6px;cursor:help;color:#999;font-size:14px;border:1px solid #ccc;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;line-height:1">?</span>
                 </label>
                 <div style="display:flex;align-items:center;gap:6px;padding-left:26px">
                     <span style="font-size:13px;color:#888">目标时间</span>
@@ -1036,6 +1057,11 @@
             if (!CFG.AUTO_CLICK_SUB) {
                 showPayAlarm();
                 setBar(`🎯 <b>发现可购！${TABS_MAP[tab]} · ${PKGS_MAP[pkg]}</b>，请手动点击订阅`, '#389e0d');
+                return;
+            }
+            if (!isRushAutoClickWindow()) {
+                const remaining = Math.max(0, getRushRemainingMs());
+                setBar(`⏸️ 冲刺模式等待中，距离目标时间 <b>${fmt(remaining)}</b>，暂不自动点击订阅`, '#722ed1');
                 return;
             }
             PS.result = null; PS.inProgress = true;
@@ -1978,8 +2004,13 @@
     async function finishCaptchaDirectConfirm() {
         if (RUSH_CFG.enabled) {
             var nowTs = Date.now();
+            var targetTs = getTargetTimestamp();
+            var remaining = targetTs - nowTs;
+            if (remaining > RUSH_CFG.holdWindowMs) {
+                console.log('[captcha-rush] outside hold window, skip auto confirm for ' + Math.ceil(remaining / 1000) + 's');
+                return;
+            }
             if (shouldHoldRushConfirm(nowTs)) {
-                var targetTs = getTargetTimestamp();
                 console.log('[captcha-rush] hold confirm for ' + Math.max(0, targetTs - nowTs).toFixed(0) + 'ms');
                 await waitForRushRelease();
                 console.log('[captcha-rush] release confirm');
