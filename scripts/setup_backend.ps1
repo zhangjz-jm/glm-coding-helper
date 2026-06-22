@@ -1,4 +1,4 @@
-param(
+﻿param(
     [ValidateSet("auto", "cpu", "gpu", "both")]
     [string]$Target = "auto",
     [switch]$Recreate,

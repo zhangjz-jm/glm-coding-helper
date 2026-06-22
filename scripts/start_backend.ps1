@@ -1,4 +1,4 @@
-param(
+﻿param(
     [ValidateSet("auto", "gpu", "cpu", "cpu_parallel")]
     [string]$Mode = "auto",
     [switch]$Headless,

@@ -1,4 +1,4 @@
-# GLM Coding Helper - Pipeline Backend GUI Launcher
+﻿# GLM Coding Helper - Pipeline Backend GUI Launcher
 # Usage: powershell -File start-backend-pipeline-gui.ps1
 
 $ErrorActionPreference = "Continue"

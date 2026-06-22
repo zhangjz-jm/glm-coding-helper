@@ -1,4 +1,4 @@
-param(
+﻿param(
     [ValidateSet("auto", "cpu", "gpu")]
     [string]$Target = "auto",
     [int]$Port = 8888,
