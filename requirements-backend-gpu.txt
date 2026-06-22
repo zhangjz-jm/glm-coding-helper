@@ -4,8 +4,8 @@ opencv-contrib-python==4.10.0.84
 scipy
 ultralytics
 paddlepaddle-gpu==2.6.2
-paddleocr==3.5.0
-paddlex==3.5.2
+paddleocr>=3.7.0
+paddlex>=3.7.0
 nvidia-cublas-cu11==11.11.3.6
 nvidia-cuda-nvrtc-cu11==11.8.89
 nvidia-cudnn-cu11==8.9.5.29
