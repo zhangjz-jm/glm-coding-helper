@@ -150,8 +150,16 @@ function Invoke-Bootstrap {
     $logDir = Split-Path -Parent $logPath
     if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
     Write-Host "详细安装日志: $logPath"
-    & powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\bootstrap_windows.ps1" @argsList 2>&1 | Tee-Object -FilePath $logPath
-    return $LASTEXITCODE
+    # 直接在当前进程跑 bootstrap，输出实时到控制台（无管道缓冲，用户能看到 pip 进度）。
+    # 同时用 Start-Transcript 录日志（不影响控制台输出节奏）。
+    Start-Transcript -Path $logPath -Force | Out-Null
+    try {
+        & "$Root\scripts\bootstrap_windows.ps1" @argsList
+        $code = $LASTEXITCODE
+    } finally {
+        Stop-Transcript | Out-Null
+    }
+    return $code
 }
 
 Assert-RequiredFiles
