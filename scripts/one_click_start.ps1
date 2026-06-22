@@ -116,7 +116,12 @@ function Invoke-Bootstrap {
         $argsList += "-PipArg"
         $argsList += $arg
     }
-    & powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\bootstrap_windows.ps1" @argsList
+    # 把 bootstrap 完整输出同时写日志文件，便于失败时诊断
+    $logPath = Join-Path $Root "logs\backend-install.log"
+    $logDir = Split-Path -Parent $logPath
+    if (-not (Test-Path $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
+    Write-Host "详细安装日志: $logPath"
+    & powershell -NoProfile -ExecutionPolicy Bypass -File "scripts\bootstrap_windows.ps1" @argsList 2>&1 | Tee-Object -FilePath $logPath
     return $LASTEXITCODE
 }
 
@@ -163,6 +168,7 @@ if (-not $Ready) {
         }
         Write-Host "       Try re-extracting the latest release and rerun one-click-start.cmd." -ForegroundColor Red
         Write-Host "       If the folder path is deep, move it to C:\glm-coding-helper and retry." -ForegroundColor Red
+        Write-Host "       完整安装日志已保存到 logs\backend-install.log，排查请提供此文件。" -ForegroundColor Yellow
         Read-Host "Press Enter to exit"
         exit 1
     }
