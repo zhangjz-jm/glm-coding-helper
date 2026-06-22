@@ -2,7 +2,8 @@ param(
     [ValidateSet("auto", "cpu", "gpu")]
     [string]$Target = "auto",
     [int]$Port = 8888,
-    [string[]]$PipArg = @()
+    # 默认走清华镜像，避免国内用户直连 PyPI 超时。用户显式传 -PipArg 会覆盖。
+    [string[]]$PipArg = @("-i", "https://pypi.tuna.tsinghua.edu.cn/simple")
 )
 
 $ErrorActionPreference = "Stop"
