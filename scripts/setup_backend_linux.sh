@@ -272,15 +272,43 @@ else
 fi
 
 # ── 7. 完成 ────────────────────────────────────────────────────
-cat <<EOF
+print_completion_hints() {
+    local mode py has_cpu=0 has_gpu=0
 
-完成。启动后端：
+    for mode in "${SELECTED[@]}"; do
+        case "$mode" in
+            cpu) has_cpu=1 ;;
+            gpu) has_gpu=1 ;;
+        esac
+    done
 
-  GUI 模式：
-    $ROOT/.venv_paddle/bin/python $ROOT/scripts/tools/start_backend.py --mode auto
+    echo ""
+    echo "完成。启动后端："
+    echo ""
 
-  headless 模式：
-    $ROOT/.venv_paddle/bin/python $ROOT/scripts/tools/start_backend.py --headless --mode auto
+    for mode in "${SELECTED[@]}"; do
+        if [ "$mode" = "gpu" ]; then
+            py="$ROOT/.venv_paddle_gpu/bin/python"
+        else
+            py="$ROOT/.venv_paddle/bin/python"
+        fi
+        echo "  ${mode^^} 环境："
+        echo "    GUI:      $py $ROOT/scripts/tools/start_backend.py --mode $mode"
+        echo "    headless: $py $ROOT/scripts/tools/start_backend.py --headless --mode $mode"
+        echo ""
+    done
 
-  Linux 支持 CPU；如 NVIDIA/CUDA/PaddlePaddle 环境可用，也支持 GPU/auto 模式。
-EOF
+    if [ "$has_gpu" -eq 1 ] && [ "$has_cpu" -eq 1 ]; then
+        echo "  auto 模式（GPU 优先，失败回退 CPU）："
+        echo "    $ROOT/.venv_paddle_gpu/bin/python $ROOT/scripts/tools/start_backend.py --headless --mode auto"
+        echo ""
+    elif [ "$has_gpu" -eq 1 ]; then
+        echo "  提示：使用 auto 模式前，建议再安装 CPU 回退环境："
+        echo "    ./scripts/setup_backend_linux.sh --target cpu"
+        echo ""
+    fi
+
+    echo "  Linux 支持 CPU；如 NVIDIA/CUDA/PaddlePaddle 环境可用，也支持 GPU/auto 模式。"
+}
+
+print_completion_hints

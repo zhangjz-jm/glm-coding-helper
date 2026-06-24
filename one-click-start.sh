@@ -85,11 +85,18 @@ EOF
 # ── 1. 检查系统和 Release 文件 ────────────────────────────────
 if [ "$(uname -s)" != "Linux" ]; then
     echo "[错误] 此脚本仅支持 Linux。" >&2
-    read -r -p "按回车键退出..."
+    pause_if_tty "按回车键退出..."
     exit 1
 fi
 
 # ── 辅助函数 ───────────────────────────────────────────────────
+pause_if_tty() {
+    local prompt="${1:-按回车键退出...}"
+    if [ -t 0 ]; then
+        read -r -p "$prompt"
+    fi
+}
+
 has_nvidia_gpu() {
     command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1
 }
@@ -152,7 +159,7 @@ assert_required_files() {
             echo "       - $item" >&2
         done
         echo "Please re-extract the full latest release zip and retry." >&2
-        read -r -p "Press Enter to exit"
+        pause_if_tty "Press Enter to exit"
         exit 1
     fi
 }
@@ -255,7 +262,7 @@ if [ "$READY" -eq 0 ]; then
             echo "       Auto mode already attempted GPU/CPU fallback." >&2
         fi
         echo "       完整安装日志已保存到 logs/backend-install.log，排查请提供此文件。" >&2
-        read -r -p "按回车键退出..."
+        pause_if_tty "按回车键退出..."
         exit 1
     fi
 fi
@@ -273,7 +280,7 @@ WEIGHT="$SCRIPT_DIR/models/weights/yolo-captcha-detector.pt"
 if [ ! -f "$WEIGHT" ]; then
     echo "[错误] 缺少检测权重：$WEIGHT" >&2
     echo "       请从 Release 包补齐 models/weights/yolo-captcha-detector.pt 后再启动。" >&2
-    read -r -p "按回车键退出..."
+    pause_if_tty "按回车键退出..."
     exit 1
 fi
 
