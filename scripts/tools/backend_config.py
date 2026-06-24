@@ -190,7 +190,29 @@ def resolve_backend_config(source: str = "env") -> BackendConfig:
     if yolo_device_env:
         yolo_device = yolo_device_env
     elif ocr_mode == "gpu" and gpu_available:
-        yolo_device = "0"
+        # paddle GPU 可用不代表 torch GPU 可用（用户可能装了 CPU 版 torch）。
+        # YOLO/Ultralytics 依赖 torch，必须单独检测 torch CUDA，否则 device=0 会崩溃。
+        try:
+            gpu_python = _venv_python(".venv_paddle_gpu")
+            torch_probe = (
+                "import torch; "
+                "print('torch_ok' if torch.cuda.is_available() and torch.cuda.device_count() > 0 else 'torch_no_cuda')"
+            )
+            proc = subprocess.run(
+                [str(gpu_python), "-c", torch_probe],
+                cwd=str(ROOT), env=_gpu_probe_env(),
+                text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=10.0,
+            )
+            torch_ok = "torch_ok" in (proc.stdout or "")
+        except Exception:
+            torch_ok = False
+        if torch_ok:
+            yolo_device = "0"
+        else:
+            print("[backend] WARNING: paddle GPU available but torch has no CUDA (CPU-only torch installed). "
+                  "YOLO will use CPU; OCR still uses GPU. Install GPU torch: "
+                  "pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118", flush=True)
+            yolo_device = "cpu"
     else:
         yolo_device = "cpu"
 
