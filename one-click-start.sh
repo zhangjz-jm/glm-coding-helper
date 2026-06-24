@@ -161,21 +161,22 @@ invoke_setup() {
     local setup_target="$1"
     local venv_py="$2"
     local force_recreate="${3:-0}"
-    local args=("scripts/setup_backend_linux.sh" "--target" "$setup_target")
+    local setup_script="$SCRIPT_DIR/scripts/setup_backend_linux.sh"
+    local -a setup_args=("--target" "$setup_target")
 
     # 与 Windows Invoke-Bootstrap 一致：外来/损坏 venv，或目标 python 已存在时先删再建。
     if [ "$force_recreate" -eq 1 ] || { [ -n "$venv_py" ] && [ -e "$venv_py" ]; }; then
         echo "Existing backend environment failed portability/import checks. Recreating it..."
-        args+=("--recreate")
+        setup_args+=("--recreate")
     fi
 
     for arg in "${PIP_ARGS[@]}"; do
-        args+=("--pip-arg" "$arg")
+        setup_args+=("--pip-arg" "$arg")
     done
 
     mkdir -p "$SCRIPT_DIR/logs"
     echo "详细安装日志: $SCRIPT_DIR/logs/backend-install.log"
-    "${args[@]}" 2>&1 | tee "$SCRIPT_DIR/logs/backend-install.log"
+    bash "$setup_script" "${setup_args[@]}" 2>&1 | tee "$SCRIPT_DIR/logs/backend-install.log"
 }
 
 assert_required_files
