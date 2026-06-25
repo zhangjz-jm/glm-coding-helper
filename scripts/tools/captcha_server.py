@@ -55,6 +55,33 @@ apply_backend_config(BACKEND_CONFIG)
 HOST = BACKEND_CONFIG.host
 PORT = BACKEND_CONFIG.port
 
+# 滚动清理：调试/自动采集目录只保留最近 N 个文件，避免长时间挂着抢时无限增长占满磁盘。
+# 这些目录是调试用途，对识别功能无影响，老图定期清掉即可。
+DEBUG_KEEP_FILES = 60          # debug_captcha_direct 保留最近 60 张原图
+AUTO_CAPTURE_KEEP_FILES = 120  # auto_captured 保留最近 120 张截图
+
+def prune_dir(directory: Path, keep: int, suffix: str = ".png") -> None:
+    """保留目录里最近修改的 keep 个文件，删除更老的。静默失败。"""
+    try:
+        if not directory.exists():
+            return
+        files = [p for p in directory.iterdir() if p.is_file() and p.suffix.lower() == suffix]
+        if len(files) <= keep:
+            return
+        files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        removed = 0
+        for p in files[keep:]:
+            try:
+                p.unlink()
+                removed += 1
+            except Exception:
+                pass
+        if removed:
+            log_to_gui(f"[清理] {directory.name}: 删除 {removed} 个旧文件，保留 {keep} 个")
+    except Exception:
+        pass
+
+
 class AppState:
     def __init__(self):
         self.status = "准备就绪"
@@ -388,6 +415,7 @@ def trigger_auto_capture(chars_text: str, request_ts: int, browser_hint=None):
         best_img.save(save_path)
 
         log_to_gui(f"截图保存: {filename}")
+        prune_dir(DATASET_DIR, AUTO_CAPTURE_KEEP_FILES)
         print(f"[CAPTURE] saved in {(time.time()-t1)*1000:.0f}ms, calling recognize...", flush=True)
 
         log_to_gui("开始识别...")
@@ -485,6 +513,7 @@ class CaptchaHandler(BaseHTTPRequestHandler):
                     debug_path = DEBUG_DIR / f"{chars_text}_{ts_str}.png"
                     image.save(debug_path)
                     log_to_gui(f"[direct] 调试保存: {debug_path.name} ({len(img_bytes)//1024}KB)")
+                    prune_dir(DEBUG_DIR, DEBUG_KEEP_FILES)
 
                     _t0 = time.perf_counter()
                     result = recognize_captcha(str(debug_path), list(chars_text), crop_rect=None)

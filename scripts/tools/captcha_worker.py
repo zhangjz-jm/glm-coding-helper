@@ -69,8 +69,27 @@ else:
     OCR_WORKER = ROOT / "scripts" / "tools" / "ppocr_gpu_worker.py"
     OCR_ENGINE_NAME = f"yolo+{os.environ.get('CNCAPTCHA_GPU_OCR_MODEL', 'PP-OCRv5_server_rec')}_gpu"
 CROP_DIR = ROOT / "logs" / "ppocr_live_crops"
+CROP_KEEP_FILES = 200  # ppocr_live_crops 滚动保留最近 200 个裁剪图，避免无限增长
 YOLO_IMGSZ = int(os.environ.get("CNCAPTCHA_YOLO_IMGSZ", "448"))
 YOLO_DEVICE = os.environ.get("CNCAPTCHA_YOLO_DEVICE", "").strip() or None
+
+
+def _prune_crops() -> None:
+    """保留最近修改的 CROP_KEEP_FILES 个裁剪图，删除更老的。静默失败。"""
+    try:
+        if not CROP_DIR.exists():
+            return
+        files = [p for p in CROP_DIR.iterdir() if p.is_file() and p.suffix.lower() == ".png"]
+        if len(files) <= CROP_KEEP_FILES:
+            return
+        files.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+        for p in files[CROP_KEEP_FILES:]:
+            try:
+                p.unlink()
+            except Exception:
+                pass
+    except Exception:
+        pass
 
 detector = YOLO(str(DETECTOR_PATH))
 _ocr_proc: subprocess.Popen | None = None
@@ -263,6 +282,8 @@ for raw_line in sys.stdin.buffer:
             path = CROP_DIR / f"{Path(img_path).stem}_{stamp}_box{idx}.png"
             crop.save(path)
             crop_paths.append(path)
+
+        _prune_crops()
 
         ocr_t0 = _time.perf_counter()
         ocr_rows, ocr_meta = ask_ocr(crop_paths, chars)
