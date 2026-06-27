@@ -17,8 +17,8 @@ MODEL_NAME = os.environ.get("CNCAPTCHA_CPU_OCR_MODEL", "PP-OCRv6_tiny_rec")
 ENGINE = os.environ.get("CNCAPTCHA_CPU_OCR_ENGINE", "paddle_dynamic")
 WORKERS = int(os.environ.get("CNCAPTCHA_CPU_OCR_WORKERS", "3"))
 CACHE_NAME = os.environ.get("CNCAPTCHA_CPU_PADDLEX_CACHE", ".paddlex_cache_cpu")
-HYBRID_FAST_MODEL = os.environ.get("CNCAPTCHA_CPU_OCR_FAST_MODEL", "PP-OCRv5_mobile_rec")
-HYBRID_FALLBACK_MODEL = os.environ.get("CNCAPTCHA_CPU_OCR_FALLBACK_MODEL", "PP-OCRv5_server_rec")
+HYBRID_FAST_MODEL = os.environ.get("CNCAPTCHA_CPU_OCR_FAST_MODEL", "PP-OCRv6_tiny_rec")
+HYBRID_FALLBACK_MODEL = os.environ.get("CNCAPTCHA_CPU_OCR_FALLBACK_MODEL", "PP-OCRv6_medium_rec")
 CONSTRAINED_DECODE = os.environ.get("CNCAPTCHA_CPU_OCR_CONSTRAINED", "1").lower() not in {
     "0",
     "false",

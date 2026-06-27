@@ -22,7 +22,7 @@ import numpy as np
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MODEL_NAME = os.environ.get("CNCAPTCHA_GPU_OCR_MODEL", "PP-OCRv5_server_rec")
+MODEL_NAME = os.environ.get("CNCAPTCHA_GPU_OCR_MODEL", "PP-OCRv6_tiny_rec")
 DEVICE = os.environ.get("CNCAPTCHA_GPU_OCR_DEVICE", "gpu:0")
 ENGINE = os.environ.get("CNCAPTCHA_GPU_OCR_ENGINE", "paddle_dynamic")
 CONSTRAINED_DECODE = os.environ.get("CNCAPTCHA_GPU_OCR_CONSTRAINED", "1").lower() not in {

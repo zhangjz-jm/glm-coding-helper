@@ -67,7 +67,7 @@ else:
         )
     )
     OCR_WORKER = ROOT / "scripts" / "tools" / "ppocr_gpu_worker.py"
-    OCR_ENGINE_NAME = f"yolo+{os.environ.get('CNCAPTCHA_GPU_OCR_MODEL', 'PP-OCRv5_server_rec')}_gpu"
+    OCR_ENGINE_NAME = f"yolo+{os.environ.get('CNCAPTCHA_GPU_OCR_MODEL', 'PP-OCRv6_tiny_rec')}_gpu"
 CROP_DIR = ROOT / "logs" / "ppocr_live_crops"
 CROP_KEEP_FILES = 200  # ppocr_live_crops 滚动保留最近 200 个裁剪图，避免无限增长
 YOLO_IMGSZ = int(os.environ.get("CNCAPTCHA_YOLO_IMGSZ", "448"))

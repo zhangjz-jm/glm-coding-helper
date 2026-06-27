@@ -86,7 +86,7 @@ def smoke_test(py: Path, mode: str) -> None:
             f"os.environ['PADDLE_PDX_CACHE_HOME'] = {str(ROOT / '.paddlex_cache_gpu')!r}; "
             "os.environ.setdefault('PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK', 'True'); "
             "from paddleocr import TextRecognition; "
-            "r = TextRecognition(model_name='PP-OCRv5_server_rec', device='gpu:0', engine='paddle_dynamic'); "
+            "r = TextRecognition(model_name='PP-OCRv6_tiny_rec', device='gpu:0', engine='paddle_dynamic'); "
             "close = getattr(r, 'close', None); "
             "close() if callable(close) else None; "
             "print('gpu ocr ok')"
