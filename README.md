@@ -193,7 +193,9 @@ https://www.bigmodel.cn/glm-coding
 
 油猴菜单里可以打开配置面板、一键多开窗口、清除今日套餐状态缓存。
 
-交流群https://t.me/+s1flX6cpUZ1kM2M1
+抢购交流群https://t.me/+s1flX6cpUZ1kM2M1
+智谱官方飞书群<img width="210" height="222" alt="image" src="https://github.com/user-attachments/assets/4c763912-2699-4579-915d-215ae38860db" />
+
 
 ## 配置面板
 
