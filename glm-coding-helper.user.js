@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         智谱 GLM Coding Plan 抢购助手 + 本地 OCR 自动验证码
 // @namespace    http://tampermonkey.net/
-// @version      23.9
+// @version      23.10
 // @description  GLM Coding Rush / 智谱 GLM Coding Plan 抢购助手，一键抢购油猴脚本 / Tampermonkey userscript，配合本地 CPU/GPU OCR（PP-OCRv6）自动识别中文点选验证码并点击，支持多窗口并发、限流重试和支付页安全保护。订阅入口被风控拦截时手动点「特惠订阅」即可，验证码自动打。
 // @author       mumumi
 // @include      https://*bigmodel.cn/glm-coding*
@@ -17,6 +17,7 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_openInTab
 // @grant        GM_xmlhttpRequest
+// @grant        GM_addValueChangeListener
 // @connect      localhost
 // @connect      localhost:8888
 // @connect      127.0.0.1
@@ -33,7 +34,7 @@
 // ==/UserScript==
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '23.2';
+    const SCRIPT_VERSION = '23.10';
     const BOOT_BAR_ID = 'glm-helper-status-bar';
     const __glmHost = (() => { try { return location.hostname || ''; } catch { return ''; } })();
     const __inMiniMax = __glmHost === 'platform.minimaxi.com';
@@ -600,6 +601,9 @@
     // ── 配置 ──────────────────────────────────────────────────────────────────
     const STORAGE_KEY = 'glm_coding_config_v5';
     const RUNTIME_PAUSE_KEY = 'glm_runtime_paused_v1';
+    // 跨窗口批量暂停/恢复用的广播 key（Shift+F8 写，其他窗口监听）。
+    // 与 RUNTIME_PAUSE_KEY 分开：后者负责持久化（新窗口继承暂停态），广播 key 只做实时联动。
+    const PAUSE_BROADCAST_KEY = 'glm_runtime_pause_broadcast_v1';
     const TABS_MAP    = { 1: '连续包月', 2: '连续包季', 3: '连续包年' };
     const PKGS_MAP    = { 1: 'Lite',    2: 'Pro',      3: 'Max'      };
     const DEF = {
@@ -626,12 +630,25 @@
         RUSH_HOLD_WINDOW_MS : 10000,
         RUSH_RELEASE_ADVANCE_MS: 0,
         HOTKEY_PAUSE: 'F8',
+        HOTKEY_PAUSE_ALL: 'Shift+F8',
         HOTKEY_AUTO_CLICK_SUB: 'F9',
     };
     function loadCfg() { try { const s = GM_getValue(STORAGE_KEY, null); return s ? { ...DEF, ...JSON.parse(s) } : { ...DEF }; } catch { return { ...DEF }; } }
     function saveCfg(c) { GM_setValue(STORAGE_KEY, JSON.stringify(c)); }
     const CFG = loadCfg();
     let runtimePaused = (() => { try { return GM_getValue(RUNTIME_PAUSE_KEY, false) === true; } catch { return false; } })();
+    // 跨标签页联动：Shift+F8 写广播 key，其他 glm-coding 窗口监听并同步。
+    // 只覆盖同浏览器普通窗口（无痕/跨浏览器受扩展隔离限制，不在此方案范围内）。
+    if (typeof GM_addValueChangeListener === 'function') {
+        GM_addValueChangeListener(PAUSE_BROADCAST_KEY, (key, oldVal, newVal, remote) => {
+            if (!remote) return; // 只响应其他标签页的变更，避免回环
+            const msg = (() => { try { return typeof newVal === 'string' ? JSON.parse(newVal) : null; } catch { return null; } })();
+            if (!msg || typeof msg.paused !== 'boolean') return;
+            if (msg.paused !== runtimePaused) {
+                setRuntimePaused(msg.paused, 'broadcast');
+            }
+        });
+    }
     const RUSH_LATENCY_KEY = 'glm_rush_latency_v1';
     function rushNumber(value, fallback) {
         const n = parseInt(value, 10);
@@ -750,8 +767,10 @@
         return normalizeHotkeyString(hotkey) === hotkeyFromEvent(e);
     }
     const pauseHotkey = () => normalizeHotkeyString(CFG.HOTKEY_PAUSE, 'F8');
+    const pauseAllHotkey = () => normalizeHotkeyString(CFG.HOTKEY_PAUSE_ALL, 'Shift+F8');
     const autoClickSubHotkey = () => normalizeHotkeyString(CFG.HOTKEY_AUTO_CLICK_SUB, 'F9');
     GM_registerMenuCommand(`⏯️ 暂停/恢复脚本 (${pauseHotkey()})`, toggleRuntimePause);
+    GM_registerMenuCommand(`⏯️ 批量暂停/恢复（同浏览器） (${pauseAllHotkey()})`, toggleRuntimePauseAll);
     GM_registerMenuCommand(`🖱️ 切换自动点击订阅 (${autoClickSubHotkey()})`, toggleAutoClickSub);
     function saveRuntimeCfgPatch(patch) {
         Object.assign(CFG, patch);
@@ -760,8 +779,13 @@
     function setRuntimePaused(paused, source = 'hotkey') {
         runtimePaused = paused === true;
         GM_setValue(RUNTIME_PAUSE_KEY, runtimePaused);
+        const sourceLabel = ({
+            'hotkey': '快捷键',
+            'pause-all': '批量',
+            'broadcast': '远程同步',
+        })[source] || source;
         if (runtimePaused) {
-            setBar(`⏸️ 脚本已暂停（${source}）。${pauseHotkey()} 恢复。`, '#722ed1');
+            setBar(`⏸️ 脚本已暂停（${sourceLabel}）。${pauseHotkey()} 恢复。`, '#722ed1');
         } else {
             // 恢复时：如果正在 WAITING，重置 taskClickTime（让超时从恢复时刻重新算，
             // 避免暂停期间 elapsed 虚高导致误超时）；如果 WAITING 但弹窗已不在
@@ -771,15 +795,21 @@
                 const hasModal = findRLModal() || isPayDialog() || isSuccessDialog();
                 if (!hasModal) {
                     taskPhase = 'IDLE';
-                    setBar(`▶️ 脚本已恢复（${source}），弹窗已关，重试点订阅。`, '#237804');
+                    setBar(`▶️ 脚本已恢复（${sourceLabel}），弹窗已关，重试点订阅。`, '#237804');
                     return;
                 }
             }
-            setBar(`▶️ 脚本已恢复（${source}）。`, '#237804');
+            setBar(`▶️ 脚本已恢复（${sourceLabel}）。`, '#237804');
         }
     }
     function toggleRuntimePause() {
         setRuntimePaused(!runtimePaused);
+    }
+    // 批量暂停/恢复：切换当前窗口状态，并写广播 key 让同浏览器其他 glm-coding 窗口同步。
+    function toggleRuntimePauseAll() {
+        const next = !runtimePaused;
+        setRuntimePaused(next, 'pause-all');
+        try { GM_setValue(PAUSE_BROADCAST_KEY, JSON.stringify({ paused: next, ts: Date.now() })); } catch (e) {}
     }
     function toggleAutoClickSub() {
         const next = !CFG.AUTO_CLICK_SUB;
@@ -793,6 +823,13 @@
     }
     function handleControlHotkeys(e) {
         if (isEditableHotkeyTarget(e.target)) return false;
+        // Shift+F8 必须先判：和单键 F8 共享主键，单键分支会先吃掉无 shift 的事件，
+        // 但有 shift 时单键 hotkeyMatches 不匹配，所以顺序其实不影响；放前面语义更清晰。
+        if (hotkeyMatches(e, pauseAllHotkey())) {
+            e.preventDefault();
+            toggleRuntimePauseAll();
+            return true;
+        }
         if (hotkeyMatches(e, pauseHotkey())) {
             e.preventDefault();
             toggleRuntimePause();
@@ -1223,10 +1260,12 @@
                     <div style="display:grid;grid-template-columns:120px 1fr;gap:8px;align-items:center">
                         <span style="font-size:13px;color:#888">暂停/恢复</span>
                         <input id="glm-hk-pause" value="${pauseHotkey()}" readonly style="width:120px;padding:5px 8px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px;text-align:center;background:#fafafa;cursor:pointer">
+                        <span style="font-size:13px;color:#888">批量暂停（同浏览器）</span>
+                        <input id="glm-hk-pauseall" value="${pauseAllHotkey()}" readonly style="width:120px;padding:5px 8px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px;text-align:center;background:#fafafa;cursor:pointer">
                         <span style="font-size:13px;color:#888">自动点击订阅</span>
                         <input id="glm-hk-sub" value="${autoClickSubHotkey()}" readonly style="width:120px;padding:5px 8px;border:1px solid #d9d9d9;border-radius:4px;font-size:13px;text-align:center;background:#fafafa;cursor:pointer">
                     </div>
-                    <div style="font-size:12px;color:#999">推荐：F8/F9、Insert/Home/End。避免 F5/F11/F12、Ctrl/Alt 组合和输入法快捷键。</div>
+                    <div style="font-size:12px;color:#999">推荐：F8/F9、Insert/Home/End。批量暂停默认 Shift+F8，覆盖同浏览器所有 glm-coding 窗口。避免 F5/F11/F12、Ctrl/Alt 组合和输入法快捷键。</div>
                 </div>
             </div>
             <div style="display:flex;justify-content:space-between;gap:10px">
@@ -1251,6 +1290,7 @@
             input.addEventListener('focus', () => input.select());
         }
         bindHotkeyInput(panel.querySelector('#glm-hk-pause'));
+        bindHotkeyInput(panel.querySelector('#glm-hk-pauseall'));
         bindHotkeyInput(panel.querySelector('#glm-hk-sub'));
         panel.querySelector('#glm-cc').onclick = () => ov.remove();
         panel.querySelector('#glm-multi').onclick = () => { openMultipleWindows(); };
@@ -1279,6 +1319,7 @@
                 RUSH_TARGET_SEC: parseInt(panel.querySelector('#glm-rs').value, 10),
                 RUSH_RELEASE_ADVANCE_MS: CFG.RUSH_RELEASE_ADVANCE_MS,
                 HOTKEY_PAUSE: normalizeHotkeyString(panel.querySelector('#glm-hk-pause').value, 'F8'),
+                HOTKEY_PAUSE_ALL: normalizeHotkeyString(panel.querySelector('#glm-hk-pauseall').value, 'Shift+F8'),
                 HOTKEY_AUTO_CLICK_SUB: normalizeHotkeyString(panel.querySelector('#glm-hk-sub').value, 'F9'),
                 SAFE_DEFAULTS_VERSION,
             });
