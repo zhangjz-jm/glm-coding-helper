@@ -1,5 +1,9 @@
 # 修复历史
 
+## 2026-07-05
+
+- 发布用户脚本 v23.10：新增「批量暂停/恢复」快捷键（默认 `Shift+F8`），解决 #45「多窗口一个个按 F8 太麻烦」。原 `F8` 单键行为完全不变，只切当前窗口；`Shift+F8` 切换当前窗口的同时，通过 Tampermonkey 的 `GM_addValueChangeListener` 广播到同浏览器其他 glm-coding 普通窗口，实现一键全暂停/全恢复。用独立的广播 key（`glm_runtime_pause_broadcast_v1`）与原持久化 key 分离，不干扰原 F8 的「新窗口继承暂停态」语义。覆盖范围：同浏览器普通窗口；无痕模式、跨浏览器受扩展隔离限制不支持。快捷键可在配置面板自定义。
+
 ## 2026-06-26
 
 - 修复启动预热没预热到 OCR 的问题：预热本意是把 yolo+ocr 整条链路打热，避免首个验证码撞 JIT（5-8s）导致客户端超时丢点。但预热用白图兜底时 YOLO 检测到 0 个字框就提前 return，**OCR 子进程根本没被调用** → 第一个真验证码仍撞上 OCR JIT（实测 5795ms），期间客户端等不及、点字没点上。修复：`captcha_worker.py` 在 YOLO 非3 boxes 时若请求带 `force_ocr_warmup`，强制把图横切3块喂给 OCR 跑一次，确保 OCR 子进程完成 JIT 预热；`captcha_server.py` 预热调用传 `force_ocr_warmup=True`。实测预热日志现出现 `[ppocr-cpu-pool] workers=3 loaded` + `[worker] OCR warmup done`，证明 OCR 已在预热阶段加载。
