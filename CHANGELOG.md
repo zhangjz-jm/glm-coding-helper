@@ -1,5 +1,9 @@
 # 修复历史
 
+## 2026-07-09
+
+- 发布用户脚本 v23.11：注释邀请码注入逻辑。原内置折扣入口对应的邀请码活动已下线，脚本每次打开页面仍会注入 `?ic=...&closedialog=true` 参数，导致页面尝试加载已不存在的邀请码活动页。现注释掉 `ensureDiscountEntry`、邀请码版 `GLM_CODING_URL`、`GLM_DISCOUNT_CODE` 常量、未登录注册的邀请码引导，`GLM_CODING_URL` 改为纯 `https://www.bigmodel.cn/glm-coding`。所有代码原样保留为注释，活动恢复时取消 4 处注释即可。同步更新 README、Greasy Fork 描述、userscripts README。
+
 ## 2026-07-05
 
 - 发布用户脚本 v23.10：新增「批量暂停/恢复」快捷键（默认 `Shift+F8`），解决 #45「多窗口一个个按 F8 太麻烦」。原 `F8` 单键行为完全不变，只切当前窗口；`Shift+F8` 切换当前窗口的同时，通过 Tampermonkey 的 `GM_addValueChangeListener` 广播到同浏览器其他 glm-coding 普通窗口，实现一键全暂停/全恢复。用独立的广播 key（`glm_runtime_pause_broadcast_v1`）与原持久化 key 分离，不干扰原 F8 的「新窗口继承暂停态」语义。覆盖范围：同浏览器普通窗口；无痕模式、跨浏览器受扩展隔离限制不支持。快捷键可在配置面板自定义。

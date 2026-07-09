@@ -1,7 +1,7 @@
 ﻿// ==UserScript==
 // @name         智谱 GLM Coding Plan 抢购助手 + 本地 OCR 自动验证码
 // @namespace    http://tampermonkey.net/
-// @version      23.10
+// @version      23.11
 // @description  GLM Coding Rush / 智谱 GLM Coding Plan 抢购助手，一键抢购油猴脚本 / Tampermonkey userscript，配合本地 CPU/GPU OCR（PP-OCRv6）自动识别中文点选验证码并点击，支持多窗口并发、限流重试和支付页安全保护。订阅入口被风控拦截时手动点「特惠订阅」即可，验证码自动打。
 // @author       mumumi
 // @include      https://*bigmodel.cn/glm-coding*
@@ -34,7 +34,7 @@
 // ==/UserScript==
 (function () {
     'use strict';
-    const SCRIPT_VERSION = '23.10';
+    const SCRIPT_VERSION = '23.11';
     const BOOT_BAR_ID = 'glm-helper-status-bar';
     const __glmHost = (() => { try { return location.hostname || ''; } catch { return ''; } })();
     const __inMiniMax = __glmHost === 'platform.minimaxi.com';
@@ -377,24 +377,26 @@
         GM_setValue(EARLY_STORAGE_KEY, JSON.stringify(_ec));
     }
     const EARLY_AUTO_CLOSE_INVALID = _ec.AUTO_CLOSE_INVALID === true;
-    const GLM_DISCOUNT_CODE = ['9G', 'XW', 'L9', 'KC', 'GZ'].join('');
-    const GLM_CODING_URL = () => `https://www.bigmodel.cn/glm-coding?ic=${GLM_DISCOUNT_CODE}&closedialog=true`;
-    function ensureDiscountEntry() {
-        try {
-            if (!/\/glm-coding(?:\/|$)/.test(location.pathname || '')) return false;
-            const u = new URL(location.href);
-            u.protocol = 'https:';
-            u.hostname = 'www.bigmodel.cn';
-            if (location.protocol === 'https:' && location.hostname === 'www.bigmodel.cn' &&
-                u.searchParams.get('ic') === GLM_DISCOUNT_CODE && u.searchParams.get('closedialog') === 'true') return false;
-            u.searchParams.set('ic', GLM_DISCOUNT_CODE);
-            u.searchParams.set('closedialog', 'true');
-            location.replace(u.toString());
-            return true;
-        } catch {
-            return false;
-        }
-    }
+    // 邀请码活动已下线，注释注入逻辑。活动恢复时取消注释即可。
+    // const GLM_DISCOUNT_CODE = ['9G', 'XW', 'L9', 'KC', 'GZ'].join('');
+    // const GLM_CODING_URL = () => `https://www.bigmodel.cn/glm-coding?ic=${GLM_DISCOUNT_CODE}&closedialog=true`;
+    const GLM_CODING_URL = () => 'https://www.bigmodel.cn/glm-coding';
+    // function ensureDiscountEntry() {
+    //     try {
+    //         if (!/\/glm-coding(?:\/|$)/.test(location.pathname || '')) return false;
+    //         const u = new URL(location.href);
+    //         u.protocol = 'https:';
+    //         u.hostname = 'www.bigmodel.cn';
+    //         if (location.protocol === 'https:' && location.hostname === 'www.bigmodel.cn' &&
+    //             u.searchParams.get('ic') === GLM_DISCOUNT_CODE && u.searchParams.get('closedialog') === 'true') return false;
+    //         u.searchParams.set('ic', GLM_DISCOUNT_CODE);
+    //         u.searchParams.set('closedialog', 'true');
+    //         location.replace(u.toString());
+    //         return true;
+    //     } catch {
+    //         return false;
+    //     }
+    // }
     function initMiniMaxTokenPlanEntry() {
         const MINIMAX_CODE = ['IKhX', 'TPYb', 'QC'].join('');
         const MINIMAX_TOKEN_PLAN_URL = () => `https://platform.minimaxi.com/subscribe/token-plan?code=${MINIMAX_CODE}&source=link`;
@@ -413,7 +415,8 @@
         } catch {}
     }
     // ── 限流页立即跳回主页 ────────────────────────────────────────────────────
-    if (!location.href.includes('rate-limit.html') && ensureDiscountEntry()) return;
+    // 邀请码活动已下线，ensureDiscountEntry 已注释；活动恢复时取消下一行注释即可。
+    // if (!location.href.includes('rate-limit.html') && ensureDiscountEntry()) return;
     if (location.href.includes('rate-limit.html') && EARLY_AUTO_CLOSE_INVALID) {
         location.replace(GLM_CODING_URL());
         return;
@@ -1341,7 +1344,8 @@
             window.__glmRushDialogSeen = 0;
             console.log('[GLM] rush lock cleared');
         }
-        if (ensureDiscountEntry()) return;
+        // 邀请码活动已下线，ensureDiscountEntry 已注释；活动恢复时取消下一行注释即可。
+        // if (ensureDiscountEntry()) return;
         if (state === 'TASK_UNIT') { doTaskUnit(); return; }
         doScan();
     }
@@ -1566,9 +1570,10 @@
         if (!token) {
             setBar('⚠️ 未登录，请先注册/登录', '#ff4d4f');
             setTimeout(() => {
-                if (confirm('检测到未登录，是否前往注册页面？\n\n使用邀请码注册可获得额外优惠！')) {
-                    window.location.href = 'https://www.bigmodel.cn/invite?icode=PKFZ8PflAmrZ4AYh%2BAPxo33uFJ1nZ0jLLgipQkYjpcA%3D';
-                }
+                // 邀请码活动已下线，注释邀请码注册引导；活动恢复时取消注释即可。
+                // if (confirm('检测到未登录，是否前往注册页面？\n\n使用邀请码注册可获得额外优惠！')) {
+                //     window.location.href = 'https://www.bigmodel.cn/invite?icode=PKFZ8PflAmrZ4AYh%2BAPxo33uFJ1nZ0jLLgipQkYjpcA%3D';
+                // }
             }, 1000);
             return false;
         }
