@@ -3,6 +3,8 @@
 ## 2026-07-09
 
 - 发布用户脚本 v23.11：注释邀请码注入逻辑。原内置折扣入口对应的邀请码活动已下线，脚本每次打开页面仍会注入 `?ic=...&closedialog=true` 参数，导致页面尝试加载已不存在的邀请码活动页。现注释掉 `ensureDiscountEntry`、邀请码版 `GLM_CODING_URL`、`GLM_DISCOUNT_CODE` 常量、未登录注册的邀请码引导，`GLM_CODING_URL` 改为纯 `https://www.bigmodel.cn/glm-coding`。所有代码原样保留为注释，活动恢复时取消 4 处注释即可。同步更新 README、Greasy Fork 描述、userscripts README。
+- 文档更新：README 和 Greasy Fork 描述移除「11:00 之前还有机会」的过时说法，改为说明官方近期几乎不放量、连「拼好模」活动也取消，整体很难抢到（非脚本问题，是官方供给侧收紧）。
+
 
 ## 2026-07-05
 
