@@ -1,5 +1,13 @@
 # 修复历史
 
+## 2026-07-16
+
+- 启动脚本体验改进（不涉及油猴脚本，用户脚本版本仍为 v23.11）：
+  - `one-click-start.ps1` 路径长度警告阈值从 70 降到 60（基于实测：`.venv_paddle` 最深路径 177 字符 + Root 60 = 238，留 22 字符给 pip 临时文件，避免撞 Windows MAX_PATH 260）；警告改中文。
+  - `one-click-start.ps1` pip 失败分支主动检测当前路径长度，超过 60 时用中文加粗提示"路径偏长，建议移到短路径"，不再只显示通用英文。
+  - `start_backend.ps1` 启动前检测 8888 是否被占，被占时提示占用进程的 PID/名称/路径（解决 `WinError 10013` 无头绪排查的问题）。
+  - README 常见问题新增「pip 安装失败/路径太深」和「WinError 10013/端口被占」两条。
+
 ## 2026-07-09
 
 - 发布用户脚本 v23.11：注释邀请码注入逻辑。原内置折扣入口对应的邀请码活动已下线，脚本每次打开页面仍会注入 `?ic=...&closedialog=true` 参数，导致页面尝试加载已不存在的邀请码活动页。现注释掉 `ensureDiscountEntry`、邀请码版 `GLM_CODING_URL`、`GLM_DISCOUNT_CODE` 常量、未登录注册的邀请码引导，`GLM_CODING_URL` 改为纯 `https://www.bigmodel.cn/glm-coding`。所有代码原样保留为注释，活动恢复时取消 4 处注释即可。同步更新 README、Greasy Fork 描述、userscripts README。

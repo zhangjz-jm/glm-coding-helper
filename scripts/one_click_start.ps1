@@ -43,10 +43,13 @@ $env:PYTHONIOENCODING = "utf-8"
 function Warn-LongInstallPath {
     # Some backend deps contain very deep package paths. A long extract path can hit
     # Windows MAX_PATH during pip install even when all release files are present.
-    if ($Root.Length -gt 70) {
-        Write-Host "[WARN] The current folder path is quite long:" -ForegroundColor Yellow
-        Write-Host "       $Root" -ForegroundColor Yellow
-        Write-Host "       If pip reports 'No such file or directory', move this folder to a short path like C:\glm-coding-helper and retry." -ForegroundColor Yellow
+    # 阈值 60 基于实测：.venv_paddle 内最长相对路径 177 字符（modelscope/custom_datasets），
+    # 完整路径 = Root + 1 + 177，MAX_PATH=260，所以 Root 安全上限约 82；
+    # 取 60 留 22 字符余量给 pip 临时文件，超过即提示。
+    if ($Root.Length -gt 60) {
+        Write-Host "[警告] 当前文件夹路径偏长（$($Root.Length) 字符）: $Root" -ForegroundColor Yellow
+        Write-Host "       后端依赖包内部路径很深，路径太长会导致 pip 安装时报 'No such file or directory'。" -ForegroundColor Yellow
+        Write-Host "       建议移动到短路径如 C:\glm-coding-helper 后再运行。" -ForegroundColor Yellow
         Write-Host ""
     }
 }
@@ -203,14 +206,20 @@ if (-not $Ready) {
     }
 
     if (-not $Ready) {
-        Write-Host "[FAIL] Backend environment repair failed. Required deps still missing." -ForegroundColor Red
+        Write-Host "[失败] 后端环境修复失败，依赖仍缺失。" -ForegroundColor Red
         if ($Target -eq "auto") {
-            Write-Host "       Auto mode already attempted GPU/CPU fallback." -ForegroundColor Red
+            Write-Host "       auto 模式已尝试 GPU/CPU 回退。" -ForegroundColor Red
         }
-        Write-Host "       Try re-extracting the latest release and rerun one-click-start.cmd." -ForegroundColor Red
-        Write-Host "       If the folder path is deep, move it to C:\glm-coding-helper and retry." -ForegroundColor Red
+        # 主动检测路径长度——pip 失败最常见的原因之一是 Windows MAX_PATH 限制
+        if ($Root.Length -gt 60) {
+            Write-Host ""
+            Write-Host "       ⚠️ 当前路径偏长（$($Root.Length) 字符），pip 失败很可能是 Windows 路径长度限制导致。" -ForegroundColor Yellow
+            Write-Host "       把整个文件夹移到短路径（如 C:\glm-coding-helper）后重新双击 one-click-start.cmd 再试。" -ForegroundColor Yellow
+            Write-Host ""
+        }
+        Write-Host "       其它排查：重新解压最新 Release 包重跑；确认 Python 版本是 3.12。" -ForegroundColor Red
         Write-Host "       完整安装日志已保存到 logs\backend-install.log，排查请提供此文件。" -ForegroundColor Yellow
-        Read-Host "Press Enter to exit"
+        Read-Host "按 Enter 退出"
         exit 1
     }
 }

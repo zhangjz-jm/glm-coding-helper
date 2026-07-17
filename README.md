@@ -353,6 +353,14 @@ Chrome 130+ 启用了 **Local Network Access**（LNA）策略，会拦截公网 
 
 优先确认你下载的是最新版 Release 包。如果是在线安装包，第一次启动需要联网下载环境；`portable-cpu` 会减少模型/缓存下载，但仍必须在用户自己的电脑上创建 Python venv。Windows venv 不能直接从打包机复制，否则可能指向打包机的 Python 路径。
 
+### pip 安装依赖失败 / `No such file or directory` / 路径太深？
+
+后端依赖包内部路径很深（如 `modelscope` 的 custom_datasets），解压目录太长会让完整路径超过 Windows MAX_PATH（260 字符）导致 pip 失败。**建议解压到短路径**，比如 `C:\glm-coding-helper\`，**不要**解压到 `D:\Application\Greens\glm-coding-helper-portable-cpu-20260710_000834\` 这种长路径。新版本 `one-click-start.cmd` 会在路径偏长（> 60 字符）时自动警告，pip 失败时也会主动提示路径问题。
+
+### 后端启动报 `WinError 10013` / 端口 8888 被占？
+
+`WinError 10013` 表示端口被占或权限不足。常见原因：① 之前后端没退干净；② 别的软件占了 8888（迅雷、代理、其它本地服务）。**新版本启动前会自动检测 8888**，被占时提示占用进程的 PID 和名称，方便定位。也可以用别的端口：把 `one-click-start.cmd` 里的 `-Port 8888` 改成 `-Port 8889`。
+
 ### 优惠活动从哪里进入？
 
 原内置折扣入口对应的邀请码活动已下线，脚本不再自动注入邀请码参数。现在直接打开 GLM Coding 页面即可：
